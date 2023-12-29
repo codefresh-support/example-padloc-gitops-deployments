@@ -1,0 +1,43 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: padloc-dev
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io/foreground
+spec:
+  project: default
+  source:
+    path: ./charts/padloc
+    repoURL: https://github.com/alexaladov-codefresh/gitops_deployments.git
+    targetRevision: main
+    helm:
+      parameters:
+        - name: ingress.enabled
+          value: 'true'
+        - name: ingress.host
+          value: 'padloc-alexaladov-dev.support.cf-cd.com'
+        - name: dataVolume.storageClassName
+          value: 'ebs'
+        - name: attachmentsVolume.storageClassName
+          value: 'ebs'
+        - name: pwa.image
+          value: alexaladovcodefresh/padloc-pwa:main
+        - name: server.image
+          value: alexaladovcodefresh/padloc-server:main
+  destination:
+    name: in-cluster
+    namespace: padloc
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - PrunePropagationPolicy=foreground
+      - Replace=false
+      - PruneLast=false
+      - Validate=true
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=false
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=false
