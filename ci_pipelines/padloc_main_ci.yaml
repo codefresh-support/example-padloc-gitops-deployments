@@ -1,25 +1,39 @@
 version: "1.0"
+#-----------------------------BASIC SETTINGS---------------------------------------<
+indicators:
+  # Git integration name to use in all git operations
+  - &git_integration github-codefresh-personal
+  # NodeJS image version and tag
+  - &node_image node:16.13.1
+  # yq image version and tag
+  - &yq_image mikefarah/yq:4.40.4
+  # Git user name for CI commits
+  - &git_user_name ci-bot
+  # Git user email for CI commits
+  - &git_user_email ci-bot@example.com
+#----------------------------------------------------------------------------------<
+# Pipeline stages in the order of appearing on the build screen
 stages:
   - "clone"
   - "test"
   - "build"
-  - "deploy-test"
+  - "deploy-dev"
   - "approve"
   - "deploy-prod"
 
 steps:
+#-----------------------------Clone section-----------------------------------------<
   clone:
     title: "Cloning repository"
     type: "git-clone"
     repo: '${{CF_REPO_OWNER}}/${{CF_REPO_NAME}}'
     revision: '${{CF_REVISION}}'
-    git: github-codefresh-personal
+    git: *git_integration
     stage: "clone"
-
-
+#-----------------------------Tests section-----------------------------------------<
   prepare_tests:
     title: "Prepare dependancies"
-    image: "node:16.13.1"
+    image: *node_image
     working_directory: "${{clone}}"
     commands:
       - npm ci
@@ -27,7 +41,7 @@ steps:
     
   test_section:
     stage: "test"
-    image: "node:16.13.1"
+    image: *node_image
     working_directory: "${{clone}}"
     scale:
       test_prettier_check:
@@ -50,8 +64,7 @@ steps:
         title: "Perform tests"
         commands:
           - npm run test
-
-
+#-----------------------------Build section-----------------------------------------<
   build_section:
     stage: "build"
     working_directory: "${{clone}}"
@@ -63,105 +76,104 @@ steps:
     metadata: 
       set: 
         - qa: passed
-        - commit_message: ${{CF_COMMIT_MESSAGE}}
     scale:
       build_server:
         title: "Building Server image"
-        image_name: "alexaladovcodefresh/padloc-server"
+        image_name: "${{SERVER_IMAGE}}"
         dockerfile: "Dockerfile-server"
       build_pwa:
         title: "Building PWA image"
-        image_name: "alexaladovcodefresh/padloc-pwa"
+        image_name: "${{PWA_IMAGE}}"
         dockerfile: "Dockerfile-pwa"
 
-  
-  test_argo_app_source_clone:
-    stage: "deploy-test"
+  #-----------------------------Deploy to Dev section--------------------------------<
+  dev_argo_app_source_clone:
+    stage: "deploy-dev"
     title: "Cloning source"
     type: "git-clone"
-    repo: "https://github.com/alexaladov-codefresh/padloc-gitops-source.git"
+    repo: "https://github.com/${{DEV_SOURCE}}.git"
     revision: "main"
-    git: github-codefresh-personal
+    git: *git_integration
 
-  test_modify_image:
-    stage: "deploy-test"
-    image: mikefarah/yq:4.40.4
-    working_directory: "${{test_argo_app_source_clone}}"
+  dev_modify_image:
+    stage: "deploy-dev"
+    image: *yq_image
+    working_directory: "${{dev_argo_app_source_clone}}"
     commands:
-      - yq eval '.spec.source.helm.parameters |= map(select(.name == "server.image").value |= "alexaladovcodefresh/padloc-server:${{CF_BRANCH}}-${{CF_SHORT_REVISION}}")' padloc-local-test-p520.yaml -i
-      - yq eval '.spec.source.helm.parameters |= map(select(.name == "pwa.image").value |= "alexaladovcodefresh/padloc-pwa:${{CF_BRANCH}}-${{CF_SHORT_REVISION}}")' padloc-local-test-p520.yaml -i
-      - cat padloc-local-test-p520.yaml
+      - yq eval '.spec.source.helm.parameters |= map(select(.name == "server.image").value |= "${{SERVER_IMAGE}}:${{CF_BRANCH}}-${{CF_SHORT_REVISION}}")' ${{DEV_APP_FILENAME}} -i
+      - yq eval '.spec.source.helm.parameters |= map(select(.name == "pwa.image").value |= "${{PWA_IMAGE}}:${{CF_BRANCH}}-${{CF_SHORT_REVISION}}")' ${{DEV_APP_FILENAME}} -i
+      - cat ${{DEV_APP_FILENAME}}
+      - cf_export DEV_APP_FOLDER=$(pwd)
 
-  commit_and_push_test:
-    stage: "deploy-test"
+  commit_and_push_dev:
+    stage: "deploy-dev"
     title: Commit app changes and push
     type: git-commit
     arguments:
-      repo: "alexaladov-codefresh/padloc-gitops-source"
-      git: github-codefresh-personal
-      working_directory: '/codefresh/volume/padloc-gitops-source'
+      repo: "${{DEV_SOURCE}}"
+      git: *git_integration
+      working_directory: "${{DEV_APP_FOLDER}}"
       commit_message: update images with tag ${{CF_SHORT_REVISION}}
-      git_user_name: git-user-name
-      git_user_email: git-user@email.com
+      git_user_name: *git_user_name
+      git_user_email: *git_user_email
       allow_empty: true
       
-#   link_to_the_app:
-#     stage: "deploy-test"
-#     title: Link to the application ingress
-#     working_directory: "${{test_argo_app_source_clone}}"
-#     image: mikefarah/yq:4.40.4
-#     commands:
-#       - export INGRESS_LINK=$(yq '.spec.source.helm.parameters.[] | select(.name == "ingress.host").value' padloc-local-test-p520.yaml) 
-#       - cf_export link_to_the_app_CF_OUTPUT_URL="${INGRESS_LINK}"
+  link_to_dev_app:
+    stage: "deploy-dev"
+    title: Link to the application ingress
+    working_directory: "${{dev_argo_app_source_clone}}"
+    image: *yq_image
+    commands:
+      - export INGRESS_LINK=$(yq '.spec.source.helm.parameters.[] | select(.name == "ingress.host").value' ${{DEV_APP_FILENAME}}) 
+      - cf_export link_to_the_app_CF_OUTPUT_URL="https://${INGRESS_LINK}"
 
-    
+ #-----------------------------Approval section--------------------------------<   
   approval:
       type: pending-approval
       stage: "approve"
       description: Approve
       title: Update prod with the new image?
-#       fail_fast: true
-#       strict_fail_fast: true
       arguments:
         timeout:
           duration: 100
           finalState: denied
-    
+#-----------------------------Deploy to Prod section--------------------------------<    
   prod_argo_app_source_clone:
     stage: "deploy-prod"
     title: "Cloning source"
     type: "git-clone"
-    repo: "https://github.com/alexaladov-codefresh/padloc-gitops-source-prod.git"
+    repo: "https://github.com/${{PROD_SOURCE}}.git"
     revision: "main"
-    git: github-codefresh-personal
+    git: *git_integration
     
   prod_modify_image:
     stage: "deploy-prod"
-    image: mikefarah/yq:4.40.4
+    image: *yq_image
     working_directory: "${{prod_argo_app_source_clone}}"
     commands:
-      - yq eval '.spec.source.helm.parameters |= map(select(.name == "server.image").value |= "alexaladovcodefresh/padloc-server:${{CF_BRANCH}}-${{CF_SHORT_REVISION}}")' padloc-test-prod.yaml -i
-      - yq eval '.spec.source.helm.parameters |= map(select(.name == "pwa.image").value |= "alexaladovcodefresh/padloc-pwa:${{CF_BRANCH}}-${{CF_SHORT_REVISION}}")' padloc-test-prod.yaml -i
-      - cat padloc-test-prod.yaml
+      - yq eval '.spec.source.helm.parameters |= map(select(.name == "server.image").value |= "${{SERVER_IMAGE}}:${{CF_BRANCH}}-${{CF_SHORT_REVISION}}")' ${{PROD_APP_FILENAME}} -i
+      - yq eval '.spec.source.helm.parameters |= map(select(.name == "pwa.image").value |= "${{PWA_IMAGE}}:${{CF_BRANCH}}-${{CF_SHORT_REVISION}}")' ${{PROD_APP_FILENAME}} -i
+      - cat ${{PROD_APP_FILENAME}}
+      - cf_export PROD_APP_FOLDER=$(pwd)
       
   commit_and_push_prod:
     stage: "deploy-prod"
     title: Commit app changes and push
     type: git-commit
     arguments:
-      repo: "alexaladov-codefresh/padloc-gitops-source-prod"
-      git: github-codefresh-personal
-      working_directory: '/codefresh/volume/padloc-gitops-source-prod'
+      repo: "${{PROD_SOURCE}}"
+      git: *git_integration
+      working_directory: "${{PROD_APP_FOLDER}}"
       commit_message: update images with tag ${{CF_SHORT_REVISION}}
-      git_user_name: git-user-name
-      git_user_email: git-user@email.com
+      git_user_name: *git_user_name
+      git_user_email: *git_user_email
       allow_empty: true
       
   link_to_prod_app:
     stage: "deploy-prod"
     title: Link to the application ingress
     working_directory: "${{prod_argo_app_source_clone}}"
-    image: mikefarah/yq:4.40.4
+    image: *yq_image
     commands:
       - export INGRESS_LINK=$(yq '.spec.source.helm.parameters.[] | select(.name == "ingress.host").value' padloc-test-prod.yaml) 
       - cf_export link_to_prod_app_CF_OUTPUT_URL="https://${INGRESS_LINK}"
