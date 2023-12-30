@@ -9,7 +9,7 @@ spec:
   source:
     path: ./charts/padloc
     repoURL: https://github.com/alexaladov-codefresh/gitops_deployments.git
-    targetRevision: padloc-helm
+    targetRevision: main
     helm:
       parameters:
         - name: ingress.enabled
