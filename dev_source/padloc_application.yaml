@@ -15,7 +15,7 @@ spec:
         - name: ingress.enabled
           value: 'true'
         - name: ingress.host
-          value: 'padloc-alexaladov-dev.support.cf-cd.com'
+          value: 'padloc-dev-alexaladov.support.cf-cd.com'
         - name: dataVolume.storageClassName
           value: 'ebs'
         - name: attachmentsVolume.storageClassName
