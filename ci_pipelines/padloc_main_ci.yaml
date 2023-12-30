@@ -1,5 +1,5 @@
 version: "1.0"
-#-----------------------------BASIC SETTINGS---------------------------------------<
+#-----------------------------BASE SETTINGS----------------------------------------<
 indicators:
   # Git integration name to use in all git operations
   - &git_integration github-codefresh-personal
