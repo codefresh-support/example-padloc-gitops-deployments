@@ -125,7 +125,7 @@ steps:
     image: *yq_image
     commands:
       - export INGRESS_LINK=$(yq '.spec.source.helm.parameters.[] | select(.name == "ingress.host").value' ${{DEV_APP_FILENAME}}) 
-      - cf_export link_to_the_app_CF_OUTPUT_URL="https://${INGRESS_LINK}"
+      - cf_export link_to_dev_app_CF_OUTPUT_URL="https://${INGRESS_LINK}"
 
  #-----------------------------Approval section--------------------------------<   
   approval:
