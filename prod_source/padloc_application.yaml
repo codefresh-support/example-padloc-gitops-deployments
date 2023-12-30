@@ -21,9 +21,9 @@ spec:
         - name: attachmentsVolume.storageClassName
           value: 'ebs'
         - name: pwa.image
-          value: alexaladovcodefresh/padloc-pwa:main
+          value: alexaladovcodefresh/padloc-pwa:main-1e5f3b5
         - name: server.image
-          value: alexaladovcodefresh/padloc-server:main
+          value: alexaladovcodefresh/padloc-server:main-1e5f3b5
   destination:
     name: in-cluster
     namespace: padloc
