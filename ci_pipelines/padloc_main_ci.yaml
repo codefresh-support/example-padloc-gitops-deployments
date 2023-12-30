@@ -177,7 +177,7 @@ steps:
     working_directory: "${{prod_argo_app_source_clone}}"
     image: *yq_image
     commands:
-      - export INGRESS_LINK=$(yq '.spec.source.helm.parameters.[] | select(.name == "ingress.host").value' padloc-test-prod.yaml) 
+      - export INGRESS_LINK=$(yq '.spec.source.helm.parameters.[] | select(.name == "ingress.host").value' ${{PROD_APP_FILENAME}}) 
       - cf_export link_to_prod_app_CF_OUTPUT_URL="https://${INGRESS_LINK}"
 
 
