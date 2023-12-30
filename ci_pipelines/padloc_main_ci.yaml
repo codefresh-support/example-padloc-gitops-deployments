@@ -116,6 +116,7 @@ steps:
       commit_message: update images with tag ${{CF_SHORT_REVISION}}
       git_user_name: *git_user_name
       git_user_email: *git_user_email
+      rebase: true
       allow_empty: true
       
   link_to_dev_app:
@@ -167,6 +168,7 @@ steps:
       commit_message: update images with tag ${{CF_SHORT_REVISION}}
       git_user_name: *git_user_name
       git_user_email: *git_user_email
+      rebase: true
       allow_empty: true
       
   link_to_prod_app:
