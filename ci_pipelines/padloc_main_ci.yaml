@@ -22,7 +22,7 @@ stages:
   - "deploy-prod"
 
 steps:
-#-----------------------------Clone section-----------------------------------------<
+#-----------------------------Clone stage-----------------------------------------<
   clone:
     title: "Cloning repository"
     type: "git-clone"
@@ -30,7 +30,7 @@ steps:
     revision: '${{CF_REVISION}}'
     git: *git_integration
     stage: "clone"
-#-----------------------------Tests section-----------------------------------------<
+#-----------------------------Tests stage-----------------------------------------<
   prepare_tests:
     title: "Prepare dependancies"
     image: *node_image
@@ -39,7 +39,7 @@ steps:
       - npm ci
     stage: "test"
     
-  test_section:
+  test_stage:
     stage: "test"
     image: *node_image
     working_directory: "${{clone}}"
@@ -64,8 +64,8 @@ steps:
         title: "Perform tests"
         commands:
           - npm run test
-#-----------------------------Build section-----------------------------------------<
-  build_section:
+#-----------------------------Build stage-----------------------------------------<
+  build_stage:
     stage: "build"
     working_directory: "${{clone}}"
     type: "build"
@@ -86,7 +86,7 @@ steps:
         image_name: "${{PWA_IMAGE}}"
         dockerfile: "Dockerfile-pwa"
 
-  #-----------------------------Deploy to Dev section--------------------------------<
+  #-----------------------------Deploy to Dev stage--------------------------------<
   dev_argo_app_source_clone:
     stage: "deploy-dev"
     title: "Cloning source"
@@ -128,7 +128,7 @@ steps:
       - export INGRESS_LINK=$(yq '.spec.source.helm.parameters.[] | select(.name == "ingress.host").value' ${{DEV_APP_FILENAME}}) 
       - cf_export link_to_dev_app_CF_OUTPUT_URL="https://${INGRESS_LINK}"
 
- #-----------------------------Approval section--------------------------------<   
+ #-----------------------------Approval stage--------------------------------<   
   approval:
       type: pending-approval
       stage: "approve"
@@ -138,7 +138,7 @@ steps:
         timeout:
           duration: 100
           finalState: denied
-#-----------------------------Deploy to Prod section--------------------------------<    
+#-----------------------------Deploy to Prod stage--------------------------------<    
   prod_argo_app_source_clone:
     stage: "deploy-prod"
     title: "Cloning source"
